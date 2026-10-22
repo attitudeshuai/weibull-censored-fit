@@ -1,10 +1,8 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""判分输出：10 条行为测试，按重要程度加权，权重和 = 1。
+"""sxw-003 判分测试（pytest 版）：每条测试自己造台架记录，断言写在测试函数体内。
 
-每条测试自己造一份台架试验记录，并用**另一套独立实现**（坐标上升 + 黄金分割）
-复算三参数 Weibull 的极大似然解作为期望值，再驱动被测程序的命令行入口比对报告。
-期望值不读被测代码，也不读参考解的输出。
+期望值由本文件独立实现的三参数 Weibull 极大似然（粗网格 + 黄金分割细化）按当前数据现算，
+不读被测代码，也不与参考解的输出比对。权重见 conftest.py 的 WEIGHTS。
 """
 import json
 import math
@@ -16,21 +14,8 @@ import tempfile
 APP = os.environ.get("CT_APP_DIR", "/app")
 ENTRY = os.path.join(APP, "src", "reliability.py")
 
-WEIGHTS = {
-    "test_params_match_independent_mle_on_base_dataset": 0.16,
-    "test_params_match_second_dataset_with_different_parameters": 0.13,
-    "test_censoring_handled_under_heavy_censoring": 0.12,
-    "test_b_life_matches_independent_computation": 0.10,
-    "test_two_parameter_limit_when_gamma_near_zero": 0.08,
-    "test_invalid_records_rejected_without_output": 0.12,
-    "test_report_schema_and_rounding": 0.08,
-    "test_rerun_produces_identical_bytes": 0.06,
-    "test_failed_run_keeps_previous_report": 0.06,
-    "test_large_sample_recovers_parameters": 0.09,
-}
 
-
-# ---------------------------------------------------------------- 造数据（独立实现）
+# ---------------------------------------------------------------- 造记录（独立实现）
 class _Lcg(object):
     def __init__(self, seed):
         self.state = seed & 0xFFFFFFFF
@@ -54,7 +39,6 @@ def make_tests(beta, eta, gamma, n=48, seed=7, censor_time=None, censor_every=3,
     return {"unit": "kcycles", "records": records, "reporting": {"b_life_percent": pct}}
 
 
-# ---------------------------------------------------------------- 独立 MLE（坐标上升）
 def _eta_closed(beta, gamma, times, failed):
     r = 0
     s = 0.0
@@ -103,7 +87,6 @@ def _golden_max(fn, lo, hi, iters=70):
 
 
 def mle_solution(times, failed, pct):
-    """粗网格定位全局峰，再在 (γ, β) 上黄金分割细化，避免坐标上升掉进局部极值。"""
     min_fail = min(t for t, f in zip(times, failed) if f)
     g_hi = min_fail * 0.995
     best = None
@@ -114,8 +97,7 @@ def mle_solution(times, failed, pct):
             val = _lnl(beta, gamma, times, failed)
             if val is not None and (best is None or val > best[0]):
                 best = (val, beta, gamma)
-    if best is None:
-        raise RuntimeError("没有可行解")
+    assert best is not None, "独立复算没有可行解"
     beta, gamma = best[1], best[2]
     for _ in range(6):
         log_beta = _golden_max(lambda x: _lnl(math.exp(x), gamma, times, failed),
@@ -125,10 +107,15 @@ def mle_solution(times, failed, pct):
                             max(0.0, gamma - g_hi / 30.0), min(g_hi, gamma + g_hi / 30.0))
         if gamma < 1e-6:
             gamma = 0.0
-    ln_l = _lnl(beta, gamma, times, failed)
     eta, _r = _eta_closed(beta, gamma, times, failed)
-    b_life = gamma + eta * (-math.log(1.0 - pct / 100.0)) ** (1.0 / beta)
-    return {"beta": beta, "eta": eta, "gamma": gamma, "loglik": ln_l, "b_life": b_life}
+    return {"beta": beta, "eta": eta, "gamma": gamma,
+            "b_life": gamma + eta * (-math.log(1.0 - pct / 100.0)) ** (1.0 / beta)}
+
+
+def expect(data):
+    times = [float(r["time"]) for r in data["records"]]
+    failed = [bool(r["failed"]) for r in data["records"]]
+    return mle_solution(times, failed, float(data["reporting"]["b_life_percent"]))
 
 
 # ---------------------------------------------------------------- 驱动被测程序
@@ -155,54 +142,40 @@ def run_case(data):
     return report, {"tests": tpath, "out": opath, "proc": proc, "dir": tmp}
 
 
-def _expect(data):
-    times = [float(r["time"]) for r in data["records"]]
-    failed = [bool(r["failed"]) for r in data["records"]]
-    return mle_solution(times, failed, float(data["reporting"]["b_life_percent"]))
-
-
-# 位置参数 γ 是三参数 Weibull 里最难定的一位（似然面在边界附近很平），
-# 所以 β/η 卡 0.5%，γ 卡 3% 或 1 个时间单位（取大者）。
-_PARAM_TOL = {"beta": 0.005, "eta": 0.005, "gamma": 0.03}
-
-
-def _params_close(report, exp):
-    if not isinstance(report, dict):
-        return False
-    p = report.get("params") or {}
-    for key in ("beta", "eta", "gamma"):
-        got = float(p.get(key))
-        if not math.isfinite(got):
-            return False
+def _assert_params(report, exp, rel_beta=0.005, rel_eta=0.005, rel_gamma=0.03):
+    assert isinstance(report, dict), "没有产出报告"
+    params = report.get("params") or {}
+    for key, rel in (("beta", rel_beta), ("eta", rel_eta), ("gamma", rel_gamma)):
+        assert key in params, "报告缺参数 %s" % key
+        got = float(params[key])
         base = exp[key]
-        limit = _PARAM_TOL[key]
+        assert math.isfinite(got), "参数 %s 不是有限值" % key
         if abs(base) < 1e-6:
-            if abs(got) > 1.0:
-                return False
-        elif abs(got - base) > max(limit * abs(base), 1.0 if key == "gamma" else 0.0):
-            return False
-    return True
+            assert abs(got) <= 1.0, "参数 %s 偏差过大" % key
+        else:
+            limit = max(rel * abs(base), 1.0 if key == "gamma" else 0.0)
+            assert abs(got - base) <= limit, "参数 %s 偏差 %.4f 超容差（基准 %.4f）" % (key, got - base, base)
 
 
 # ---------------------------------------------------------------- 测试
 def test_params_match_independent_mle_on_base_dataset():
-    """题面原文：「按极大似然拟合三参数 Weibull」，失效件用 ln f(t)、未失效件只用 ln S(t)。
+    """题面原文：「按极大似然拟合三参数 Weibull」，失效件用密度项、未失效件只用生存项。
 
-    随机台架记录（约两成右删失）：三个参数与独立复算的极大似然解相对误差不超过 0.5%。
+    随机台架记录（约两成右删失）：β/η 相对误差不超过 0.5%，γ 不超过 3% 或 1 个单位。
     """
     data = make_tests(2.35, 820.0, 95.0, n=48, seed=11, censor_time=700.0)
     report, _ = run_case(data)
-    return _params_close(report, _expect(data))
+    _assert_params(report, expect(data))
 
 
 def test_params_match_second_dataset_with_different_parameters():
-    """题面原文：「复检时程序会被喂别的批次，样本数、删失比例与参数都和前一批不同」。
+    """题面原文：「复检会喂别的批次，样本数、删失比例与参数都不同」。
 
-    换一组参数（β≈1.4、η≈1500、γ≈300）与更重的删失后仍要吻合。
+    换 β≈1.4、η≈1500、γ≈300 与更重删失的批次后仍要吻合。
     """
     data = make_tests(1.4, 1500.0, 300.0, n=40, seed=23, censor_time=1100.0, censor_every=2)
     report, _ = run_case(data)
-    return _params_close(report, _expect(data))
+    _assert_params(report, expect(data))
 
 
 def test_censoring_handled_under_heavy_censoring():
@@ -212,7 +185,7 @@ def test_censoring_handled_under_heavy_censoring():
     """
     data = make_tests(2.0, 900.0, 50.0, n=60, seed=31, censor_time=600.0, censor_every=1)
     report, _ = run_case(data)
-    return _params_close(report, _expect(data))
+    _assert_params(report, expect(data))
 
 
 def test_b_life_matches_independent_computation():
@@ -222,100 +195,109 @@ def test_b_life_matches_independent_computation():
     """
     data = make_tests(1.8, 1200.0, 0.0, n=44, seed=47, censor_time=900.0, censor_every=3, pct=5)
     report, _ = run_case(data)
-    if not isinstance(report, dict):
-        return False
-    exp = _expect(data)
-    try:
-        got = float(report["b_life"])
-    except (KeyError, TypeError, ValueError):
-        return False
-    return abs(got - exp["b_life"]) <= 0.005 * abs(exp["b_life"])
+    assert isinstance(report, dict), "没有产出报告"
+    exp = expect(data)
+    assert "b_life" in report, "报告缺 b_life"
+    got = float(report["b_life"])
+    assert abs(got - exp["b_life"]) <= 0.005 * abs(exp["b_life"]), "B 寿命偏差 %.2f%%" % (
+        (got - exp["b_life"]) / exp["b_life"] * 100)
 
 
 def test_two_parameter_limit_when_gamma_near_zero():
     """题面原文：「位置参数估出负数或接近零时按零处理，退化成两参数」。
 
-    真值为两参数（γ=0）的批次，估出的 γ 不能凭空顶到几十个 kcycles。
+    真值为两参数的批次，估出的 γ 不能凭空顶到几十个 kcycles。
     """
     data = make_tests(2.6, 700.0, 0.0, n=50, seed=53, censor_time=None)
     report, _ = run_case(data)
-    if not _params_close(report, _expect(data)):
-        return False
-    return float(report["params"]["gamma"]) <= 0.15 * float(report["params"]["eta"])
+    _assert_params(report, expect(data))
+    gamma = float(report["params"]["gamma"])
+    eta = float(report["params"]["eta"])
+    assert gamma <= 0.15 * eta, "两参数批次却估出大 γ：%.1f（η=%.1f）" % (gamma, eta)
 
 
 def test_invalid_records_rejected_without_output():
-    """题面原文：「记录不合法时以退出码 2 结束，不产出报告」。
+    """题面原文：「记录不合法时以退出码 2 结束、不写报告，且不能污染上一次的报告」。
 
-    四种坏输入：全部删失、id 重复、时间为负、记录不足 4 条 —— 都要退出码 2、不落文件、stderr 非空。
+    五种坏输入（含边界值 t=0）逐个验证：退出码 2、无报告、无临时/副作用文件、
+    已有报告字节不变、stderr 非空。
     """
-    good = make_tests(2.0, 800.0, 60.0, n=10, seed=61, censor_time=500.0)
+    good = make_tests(2.0, 800.0, 60.0, n=30, seed=61, censor_time=500.0)
     all_cens = json.loads(json.dumps(good))
     for rec in all_cens["records"]:
         rec["failed"] = False
     dup = json.loads(json.dumps(good))
     dup["records"][1]["id"] = dup["records"][0]["id"]
-    neg = json.loads(json.dumps(good))
-    neg["records"][2]["time"] = -5.0
+    zero_time = json.loads(json.dumps(good))
+    zero_time["records"][2]["time"] = 0.0
+    neg_time = json.loads(json.dumps(good))
+    neg_time["records"][2]["time"] = -5.0
     few = json.loads(json.dumps(good))
     few["records"] = few["records"][:3]
-    for data in (all_cens, dup, neg, few):
-        tmp = tempfile.mkdtemp(prefix="wb-bad-")
-        tpath = os.path.join(tmp, "tests.json")
-        opath = os.path.join(tmp, "report.json")
-        with open(tpath, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False)
-        proc = _run(tpath, opath)
-        if proc.returncode != 2 or os.path.exists(opath):
-            return False
-        if not (proc.stderr or "").strip():
-            return False
-        if [n for n in os.listdir(tmp) if n.endswith(".tmp")]:
-            return False
-    return True
+
+    tmp = tempfile.mkdtemp(prefix="wb-neg-")
+    keep = os.path.join(tmp, "report.json")
+    report, _ = run_case(good)
+    assert isinstance(report, dict), "前置的正常记录没跑通"
+    with open(keep, "w", encoding="utf-8") as f:
+        json.dump(report, f, ensure_ascii=False)
+    before = open(keep, "rb").read()
+
+    for bad in (all_cens, dup, zero_time, neg_time, few):
+        case = tempfile.mkdtemp(prefix="wb-bad-")
+        tp = os.path.join(case, "tests.json")
+        op = os.path.join(case, "report.json")
+        with open(tp, "w", encoding="utf-8") as f:
+            json.dump(bad, f, ensure_ascii=False)
+        proc = _run(tp, op)
+        assert proc.returncode == 2, "坏输入退出码是 %r，应为 2" % proc.returncode
+        assert not os.path.exists(op), "坏输入却写出了报告"
+        assert (proc.stderr or "").strip(), "坏输入没有给出可读原因"
+        leftovers = [n for n in os.listdir(case) if n != "tests.json"]
+        assert not leftovers, "坏输入留下了副作用文件：%r" % leftovers
+
+    bad_path = os.path.join(tmp, "bad.json")
+    with open(bad_path, "w", encoding="utf-8") as f:
+        json.dump(dup, f, ensure_ascii=False)
+    proc = _run(bad_path, keep)
+    assert proc.returncode == 2
+    assert open(keep, "rb").read() == before, "坏输入覆盖了上一次的报告"
 
 
 def test_report_schema_and_rounding():
-    """题面原文：「报告结构固定，参数保留三位小数、寿命保留一位小数」。
+    """题面原文：「报告结构固定，参数保留三位小数、寿命一位、对数似然六位」。
 
-    校验顶层字段、计数、参数位数、数值有限性，以及文件里不出现 NaN 或 Infinity。
+    校验顶层字段、计数、位数与有限性，文件里不出现 NaN 或 Infinity。
     """
     data = make_tests(2.2, 850.0, 80.0, n=36, seed=67, censor_time=700.0)
     report, ctx = run_case(data)
-    if not isinstance(report, dict):
-        return False
+    assert isinstance(report, dict), "没有产出报告"
     for key in ("n", "failures", "censored", "params", "b_life", "b_life_percent", "loglik", "meta"):
-        if key not in report:
-            return False
-    if report["n"] != len(data["records"]):
-        return False
+        assert key in report, "报告缺字段 %s" % key
+    assert report["n"] == len(data["records"])
     fails = sum(1 for r in data["records"] if r["failed"])
-    if report["failures"] != fails or report["censored"] != len(data["records"]) - fails:
-        return False
+    assert report["failures"] == fails and report["censored"] == len(data["records"]) - fails
     for key in ("beta", "eta", "gamma"):
         v = float(report["params"][key])
-        if not math.isfinite(v) or abs(v - round(v, 3)) > 1e-12:
-            return False
-    if abs(float(report["b_life"]) - round(float(report["b_life"]), 1)) > 1e-12:
-        return False
+        assert math.isfinite(v) and abs(v - round(v, 3)) <= 1e-12, "参数 %s 不是三位小数" % key
+    assert abs(float(report["b_life"]) - round(float(report["b_life"]), 1)) <= 1e-12
+    assert abs(float(report["loglik"]) - round(float(report["loglik"]), 6)) <= 1e-12
     raw = open(ctx["out"], encoding="utf-8").read()
-    return "NaN" not in raw and "Infinity" not in raw
+    assert "NaN" not in raw and "Infinity" not in raw
 
 
 def test_rerun_produces_identical_bytes():
-    """题面原文：「同一份试验记录重复运行，报告逐字节一致」。
+    """题面原文：「同一份记录重复运行，报告逐字节一致」。
 
     连跑两次，两个报告文件字节完全相同。
     """
     data = make_tests(2.35, 820.0, 95.0, n=48, seed=11, censor_time=700.0)
     first, ctx1 = run_case(data)
-    if first is None:
-        return False
+    assert isinstance(first, dict), "第一次没跑通"
     body1 = open(ctx1["out"], "rb").read()
     second, ctx2 = run_case(data)
-    if second is None:
-        return False
-    return body1 == open(ctx2["out"], "rb").read()
+    assert isinstance(second, dict), "第二次没跑通"
+    assert body1 == open(ctx2["out"], "rb").read(), "两次运行的报告字节不一致"
 
 
 def test_failed_run_keeps_previous_report():
@@ -325,58 +307,34 @@ def test_failed_run_keeps_previous_report():
     """
     good = make_tests(2.0, 900.0, 70.0, n=30, seed=71, censor_time=600.0)
     tmp = tempfile.mkdtemp(prefix="wb-keep-")
-    tpath = os.path.join(tmp, "tests.json")
-    opath = os.path.join(tmp, "report.json")
-    with open(tpath, "w", encoding="utf-8") as f:
+    tp = os.path.join(tmp, "tests.json")
+    op = os.path.join(tmp, "report.json")
+    with open(tp, "w", encoding="utf-8") as f:
         json.dump(good, f, ensure_ascii=False)
-    first = _run(tpath, opath)
-    if first.returncode != 0 or not os.path.exists(opath):
-        return False
-    before = open(opath, "rb").read()
+    first = _run(tp, op)
+    assert first.returncode == 0 and os.path.exists(op), "前置的正常记录没跑通"
+    before = open(op, "rb").read()
     broken = json.loads(json.dumps(good))
     broken["records"][1]["id"] = broken["records"][0]["id"]
-    with open(tpath, "w", encoding="utf-8") as f:
+    with open(tp, "w", encoding="utf-8") as f:
         json.dump(broken, f, ensure_ascii=False)
-    second = _run(tpath, opath)
-    if second.returncode != 2:
-        return False
-    return open(opath, "rb").read() == before
+    second = _run(tp, op)
+    assert second.returncode == 2
+    assert open(op, "rb").read() == before, "失败的那次覆盖了旧报告"
 
 
 def test_large_sample_recovers_parameters():
     """题面原文：「样本量变大时参数应回到真值附近」。
 
-    300 件的批次（约三成删失）：形状与尺度与真值相差不超过 10% / 6%，位置参数落在真值的一半到一倍半之间。
+    300 件的批次（约三成删失）：β 与真值相差不超过 10%、η 不超过 6%，γ 落在真值一半到一倍半之间。
     """
     truth = {"beta": 2.0, "eta": 1000.0, "gamma": 150.0}
     data = make_tests(truth["beta"], truth["eta"], truth["gamma"], n=300, seed=83,
                       censor_time=800.0, censor_every=3)
     report, _ = run_case(data)
-    if not isinstance(report, dict):
-        return False
+    assert isinstance(report, dict), "没有产出报告"
     p = report.get("params") or {}
-    try:
-        beta, eta, gamma = float(p["beta"]), float(p["eta"]), float(p["gamma"])
-    except (KeyError, TypeError, ValueError):
-        return False
-    return (abs(beta - truth["beta"]) <= 0.10 * truth["beta"]
-            and abs(eta - truth["eta"]) <= 0.06 * truth["eta"]
-            and 0.5 * truth["gamma"] <= gamma <= 1.5 * truth["gamma"])
-
-
-def main():
-    total = 0.0
-    for name, weight in WEIGHTS.items():
-        fn = globals().get(name)
-        try:
-            passed = bool(fn and fn())
-        except Exception as e:  # noqa: BLE001 —— 任何异常都按不通过计
-            print("%s: 异常 %r" % (name, e), file=sys.stderr)
-            passed = False
-        total += weight * passed
-        print("%s: %s (权重 %.2f)" % (name, "PASS" if passed else "FAIL", weight), file=sys.stderr)
-    print("%.6f" % total)
-
-
-if __name__ == "__main__":
-    main()
+    beta, eta, gamma = float(p["beta"]), float(p["eta"]), float(p["gamma"])
+    assert abs(beta - truth["beta"]) <= 0.10 * truth["beta"], "大样本 β 偏差过大：%.3f" % beta
+    assert abs(eta - truth["eta"]) <= 0.06 * truth["eta"], "大样本 η 偏差过大：%.1f" % eta
+    assert 0.5 * truth["gamma"] <= gamma <= 1.5 * truth["gamma"], "大样本 γ 不合理：%.1f" % gamma
