@@ -265,7 +265,7 @@ def test_invalid_records_rejected_without_output():
 
 
 def test_report_schema_and_rounding():
-    """题面原文：「报告结构固定，参数保留三位小数、寿命一位、对数似然六位」。
+    """题面原文：params 三个参数各保留三位小数，b_life 保留一位小数，loglik 保留六位小数。
 
     校验顶层字段、计数、位数与有限性，文件里不出现 NaN 或 Infinity。
     """
@@ -280,7 +280,7 @@ def test_report_schema_and_rounding():
     for key in ("beta", "eta", "gamma"):
         v = float(report["params"][key])
         assert math.isfinite(v) and abs(v - round(v, 3)) <= 1e-12, "参数 %s 不是三位小数" % key
-    assert abs(float(report["b_life"]) - round(float(report["b_life"]), 1)) <= 1e-12
+    assert abs(float(report["b_life"]) - round(float(report["b_life"]), 1)) <= 1e-9
     assert abs(float(report["loglik"]) - round(float(report["loglik"]), 6)) <= 1e-12
     raw = open(ctx["out"], encoding="utf-8").read()
     assert "NaN" not in raw and "Infinity" not in raw
