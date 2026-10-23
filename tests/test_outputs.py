@@ -157,21 +157,6 @@ def run_case(data):
     return report, {"tests": tpath, "out": opath, "proc": proc, "dir": tmp}
 
 
-def _assert_params(report, exp, rel_beta=0.005, rel_eta=0.005, rel_gamma=0.03):
-    assert isinstance(report, dict), "没有产出报告"
-    params = report.get("params") or {}
-    for key, rel in (("beta", rel_beta), ("eta", rel_eta), ("gamma", rel_gamma)):
-        assert key in params, "报告缺参数 %s" % key
-        got = float(params[key])
-        base = exp[key]
-        assert math.isfinite(got), "参数 %s 不是有限值" % key
-        if abs(base) < 1e-6:
-            assert abs(got) <= 1.0, "参数 %s 偏差过大" % key
-        else:
-            limit = max(rel * abs(base), 1.0 if key == "gamma" else 0.0)
-            assert abs(got - base) <= limit, "参数 %s 偏差 %.4f 超容差（基准 %.4f）" % (key, got - base, base)
-
-
 # ---------------------------------------------------------------- 测试
 def test_params_match_independent_mle_on_base_dataset():
     """题面原文：「按极大似然拟合三参数 Weibull」，失效件用密度项、未失效件只用生存项。
@@ -182,15 +167,19 @@ def test_params_match_independent_mle_on_base_dataset():
     report, _ = run_case(data)
     assert isinstance(report, dict), "没有产出报告"
     exp = expect(data)
-    for key, rel in (("beta", 0.005), ("eta", 0.005), ("gamma", 0.03)):
-        got = float((report.get("params") or {}).get(key, float("nan")))
-        base = exp[key]
-        assert math.isfinite(got), "参数 %s 不是有限值" % key
-        if abs(base) < 1e-6:
-            assert abs(got) <= 1.0, "参数 %s 偏差过大：%r" % (key, got)
-        else:
-            limit = max(rel * abs(base), 1.0 if key == "gamma" else 0.0)
-            assert abs(got - base) <= limit, "参数 %s 偏差 %.4f 超容差（基准 %.4f）" % (key, got - base, base)
+    params = report.get("params") or {}
+    beta = float(params.get("beta", float("nan")))
+    eta = float(params.get("eta", float("nan")))
+    gamma = float(params.get("gamma", float("nan")))
+    assert math.isfinite(beta), "β 不是有限值：%r" % beta
+    assert math.isfinite(eta), "η 不是有限值：%r" % eta
+    assert math.isfinite(gamma), "γ 不是有限值：%r" % gamma
+    assert abs(beta - exp["beta"]) <= 0.005 * abs(exp["beta"]), \
+        "β 偏差 %.4f 超容差（基准 %.4f）" % (beta - exp["beta"], exp["beta"])
+    assert abs(eta - exp["eta"]) <= 0.005 * abs(exp["eta"]), \
+        "η 偏差 %.4f 超容差（基准 %.4f）" % (eta - exp["eta"], exp["eta"])
+    assert abs(gamma - exp["gamma"]) <= max(0.03 * abs(exp["gamma"]), 1.0), \
+        "γ 偏差 %.4f 超容差（基准 %.4f）" % (gamma - exp["gamma"], exp["gamma"])
 
 
 
@@ -203,15 +192,19 @@ def test_params_match_second_dataset_with_different_parameters():
     report, _ = run_case(data)
     assert isinstance(report, dict), "没有产出报告"
     exp = expect(data)
-    for key, rel in (("beta", 0.005), ("eta", 0.005), ("gamma", 0.03)):
-        got = float((report.get("params") or {}).get(key, float("nan")))
-        base = exp[key]
-        assert math.isfinite(got), "参数 %s 不是有限值" % key
-        if abs(base) < 1e-6:
-            assert abs(got) <= 1.0, "参数 %s 偏差过大：%r" % (key, got)
-        else:
-            limit = max(rel * abs(base), 1.0 if key == "gamma" else 0.0)
-            assert abs(got - base) <= limit, "参数 %s 偏差 %.4f 超容差（基准 %.4f）" % (key, got - base, base)
+    params = report.get("params") or {}
+    beta = float(params.get("beta", float("nan")))
+    eta = float(params.get("eta", float("nan")))
+    gamma = float(params.get("gamma", float("nan")))
+    assert math.isfinite(beta), "β 不是有限值：%r" % beta
+    assert math.isfinite(eta), "η 不是有限值：%r" % eta
+    assert math.isfinite(gamma), "γ 不是有限值：%r" % gamma
+    assert abs(beta - exp["beta"]) <= 0.005 * abs(exp["beta"]), \
+        "β 偏差 %.4f 超容差（基准 %.4f）" % (beta - exp["beta"], exp["beta"])
+    assert abs(eta - exp["eta"]) <= 0.005 * abs(exp["eta"]), \
+        "η 偏差 %.4f 超容差（基准 %.4f）" % (eta - exp["eta"], exp["eta"])
+    assert abs(gamma - exp["gamma"]) <= max(0.03 * abs(exp["gamma"]), 1.0), \
+        "γ 偏差 %.4f 超容差（基准 %.4f）" % (gamma - exp["gamma"], exp["gamma"])
 
 
 
@@ -224,15 +217,19 @@ def test_censoring_handled_under_heavy_censoring():
     report, _ = run_case(data)
     assert isinstance(report, dict), "没有产出报告"
     exp = expect(data)
-    for key, rel in (("beta", 0.005), ("eta", 0.005), ("gamma", 0.03)):
-        got = float((report.get("params") or {}).get(key, float("nan")))
-        base = exp[key]
-        assert math.isfinite(got), "参数 %s 不是有限值" % key
-        if abs(base) < 1e-6:
-            assert abs(got) <= 1.0, "参数 %s 偏差过大：%r" % (key, got)
-        else:
-            limit = max(rel * abs(base), 1.0 if key == "gamma" else 0.0)
-            assert abs(got - base) <= limit, "参数 %s 偏差 %.4f 超容差（基准 %.4f）" % (key, got - base, base)
+    params = report.get("params") or {}
+    beta = float(params.get("beta", float("nan")))
+    eta = float(params.get("eta", float("nan")))
+    gamma = float(params.get("gamma", float("nan")))
+    assert math.isfinite(beta), "β 不是有限值：%r" % beta
+    assert math.isfinite(eta), "η 不是有限值：%r" % eta
+    assert math.isfinite(gamma), "γ 不是有限值：%r" % gamma
+    assert abs(beta - exp["beta"]) <= 0.005 * abs(exp["beta"]), \
+        "β 偏差 %.4f 超容差（基准 %.4f）" % (beta - exp["beta"], exp["beta"])
+    assert abs(eta - exp["eta"]) <= 0.005 * abs(exp["eta"]), \
+        "η 偏差 %.4f 超容差（基准 %.4f）" % (eta - exp["eta"], exp["eta"])
+    assert abs(gamma - exp["gamma"]) <= max(0.03 * abs(exp["gamma"]), 1.0), \
+        "γ 偏差 %.4f 超容差（基准 %.4f）" % (gamma - exp["gamma"], exp["gamma"])
 
 
 
@@ -260,15 +257,19 @@ def test_two_parameter_limit_when_gamma_near_zero():
     report, _ = run_case(data)
     assert isinstance(report, dict), "没有产出报告"
     exp = expect(data)
-    for key, rel in (("beta", 0.005), ("eta", 0.005), ("gamma", 0.03)):
-        got = float((report.get("params") or {}).get(key, float("nan")))
-        base = exp[key]
-        assert math.isfinite(got), "参数 %s 不是有限值" % key
-        if abs(base) < 1e-6:
-            assert abs(got) <= 1.0, "参数 %s 偏差过大：%r" % (key, got)
-        else:
-            limit = max(rel * abs(base), 1.0 if key == "gamma" else 0.0)
-            assert abs(got - base) <= limit, "参数 %s 偏差 %.4f 超容差（基准 %.4f）" % (key, got - base, base)
+    params = report.get("params") or {}
+    beta = float(params.get("beta", float("nan")))
+    eta = float(params.get("eta", float("nan")))
+    gamma = float(params.get("gamma", float("nan")))
+    assert math.isfinite(beta), "β 不是有限值：%r" % beta
+    assert math.isfinite(eta), "η 不是有限值：%r" % eta
+    assert math.isfinite(gamma), "γ 不是有限值：%r" % gamma
+    assert abs(beta - exp["beta"]) <= 0.005 * abs(exp["beta"]), \
+        "β 偏差 %.4f 超容差（基准 %.4f）" % (beta - exp["beta"], exp["beta"])
+    assert abs(eta - exp["eta"]) <= 0.005 * abs(exp["eta"]), \
+        "η 偏差 %.4f 超容差（基准 %.4f）" % (eta - exp["eta"], exp["eta"])
+    assert abs(gamma - exp["gamma"]) <= max(0.03 * abs(exp["gamma"]), 1.0), \
+        "γ 偏差 %.4f 超容差（基准 %.4f）" % (gamma - exp["gamma"], exp["gamma"])
 
     gamma = float(report["params"]["gamma"])
     eta = float(report["params"]["eta"])
