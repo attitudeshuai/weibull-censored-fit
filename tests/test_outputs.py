@@ -184,7 +184,7 @@ def test_params_match_independent_mle_on_base_dataset():
 
 
 def test_params_match_second_dataset_with_different_parameters():
-    """题面原文：「复检会喂别的批次，样本数、删失比例与参数都不同」。
+    """题面原文：「下一批复检的样本数、删失比例和参数都会换」。
 
     换 β≈1.4、η≈1500、γ≈300 与更重删失的批次后仍要吻合。
     """
@@ -209,7 +209,7 @@ def test_params_match_second_dataset_with_different_parameters():
 
 
 def test_censoring_handled_under_heavy_censoring():
-    """题面原文：「未失效的样件只知道撑过停机时刻」。
+    """题面原文：「未失效件只能用生存函数项」。
 
     一半以上样件右删失时，把删失件当失效件处理会明显高估尺度参数，本用例卡住这种写法。
     """
@@ -234,7 +234,7 @@ def test_censoring_handled_under_heavy_censoring():
 
 
 def test_b_life_matches_independent_computation():
-    """题面原文：「报告给出 reporting.b_life_percent 对应的 B 寿命」。
+    """题面原文：「指定的那个失效百分位对应的寿命」。
 
     B_p = γ + η·(-ln(1-p/100))^(1/β)，取 p=5% 的批次核对，相对误差不超过 0.5%。
     """
@@ -249,7 +249,7 @@ def test_b_life_matches_independent_computation():
 
 
 def test_two_parameter_limit_when_gamma_near_zero():
-    """题面原文：「位置参数估出负数或接近零时按零处理，退化成两参数」。
+    """题面原文：「估出的位置参数为负或接近零时按 0 处理」。
 
     真值为两参数的批次，估出的 γ 不能凭空顶到几十个 kcycles。
     """
@@ -277,7 +277,7 @@ def test_two_parameter_limit_when_gamma_near_zero():
 
 
 def test_invalid_records_rejected_without_output():
-    """题面原文：「记录不合法时以退出码 2 结束、不写报告，且不能污染上一次的报告」。
+    """题面原文：「stderr 说明原因，不落任何文件」。
 
     五种坏输入（含边界值 t=0）逐个验证：退出码 2、无报告、无临时/副作用文件、
     已有报告字节不变、stderr 非空。
@@ -348,7 +348,7 @@ def test_search_precision_on_clean_sample():
 
 
 def test_report_schema_and_rounding():
-    """题面原文：params 三个参数各保留三位小数，b_life 保留一位小数，loglik 保留六位小数。
+    """题面原文：「三个参数各留三位小数，B 寿命留一位」
 
     校验顶层字段、计数、位数与有限性，文件里不出现 NaN 或 Infinity。
     """
@@ -370,7 +370,7 @@ def test_report_schema_and_rounding():
 
 
 def test_rerun_produces_identical_bytes():
-    """题面原文：「同一份记录重复运行，报告逐字节一致」。
+    """题面原文：「同一份记录重复复核要给出逐字节相同的结果」。
 
     连跑两次，两个报告文件字节完全相同。
     """
@@ -384,7 +384,7 @@ def test_rerun_produces_identical_bytes():
 
 
 def test_failed_run_keeps_previous_report():
-    """题面原文：「运行失败时不能覆盖上一次已经写好的报告」。
+    """题面原文：「失败的运行不得动到已经存在的结论文件」。
 
     先跑一次合格记录留下报告，再用重复 id 的坏记录跑：退出码 2，旧报告字节不变。
     """
@@ -407,7 +407,7 @@ def test_failed_run_keeps_previous_report():
 
 
 def test_large_sample_recovers_parameters():
-    """题面原文：「样本量变大时参数应回到真值附近」。
+    """题面原文：「样本量大了以后，估出来的三个参数要回到真值附近」。
 
     300 件的批次（约三成删失）：β 与真值相差不超过 10%、η 不超过 6%，γ 落在真值一半到一倍半之间。
     """
@@ -424,7 +424,7 @@ def test_large_sample_recovers_parameters():
 
 
 def test_zero_survival_time_rejected():
-    """题面原文：「时间不是正数」属非法记录。
+    """题面原文：「整份记录就是非法输入」。
 
     把一条记录的时间改成 0（边界值）：必须退出码 2 且不产出结论文件。
     """
