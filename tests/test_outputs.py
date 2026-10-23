@@ -174,11 +174,11 @@ def test_params_match_independent_mle_on_base_dataset():
     assert math.isfinite(beta), "β 不是有限值：%r" % beta
     assert math.isfinite(eta), "η 不是有限值：%r" % eta
     assert math.isfinite(gamma), "γ 不是有限值：%r" % gamma
-    assert abs(beta - exp["beta"]) <= 0.005 * abs(exp["beta"]), \
+    assert abs(beta - exp["beta"]) <= 0.0025 * abs(exp["beta"]), \
         "β 偏差 %.4f 超容差（基准 %.4f）" % (beta - exp["beta"], exp["beta"])
-    assert abs(eta - exp["eta"]) <= 0.005 * abs(exp["eta"]), \
+    assert abs(eta - exp["eta"]) <= 0.0025 * abs(exp["eta"]), \
         "η 偏差 %.4f 超容差（基准 %.4f）" % (eta - exp["eta"], exp["eta"])
-    assert abs(gamma - exp["gamma"]) <= max(0.03 * abs(exp["gamma"]), 1.0), \
+    assert abs(gamma - exp["gamma"]) <= max(0.02 * abs(exp["gamma"]), 1.0), \
         "γ 偏差 %.4f 超容差（基准 %.4f）" % (gamma - exp["gamma"], exp["gamma"])
 
 
@@ -199,11 +199,11 @@ def test_params_match_second_dataset_with_different_parameters():
     assert math.isfinite(beta), "β 不是有限值：%r" % beta
     assert math.isfinite(eta), "η 不是有限值：%r" % eta
     assert math.isfinite(gamma), "γ 不是有限值：%r" % gamma
-    assert abs(beta - exp["beta"]) <= 0.005 * abs(exp["beta"]), \
+    assert abs(beta - exp["beta"]) <= 0.0025 * abs(exp["beta"]), \
         "β 偏差 %.4f 超容差（基准 %.4f）" % (beta - exp["beta"], exp["beta"])
-    assert abs(eta - exp["eta"]) <= 0.005 * abs(exp["eta"]), \
+    assert abs(eta - exp["eta"]) <= 0.0025 * abs(exp["eta"]), \
         "η 偏差 %.4f 超容差（基准 %.4f）" % (eta - exp["eta"], exp["eta"])
-    assert abs(gamma - exp["gamma"]) <= max(0.03 * abs(exp["gamma"]), 1.0), \
+    assert abs(gamma - exp["gamma"]) <= max(0.02 * abs(exp["gamma"]), 1.0), \
         "γ 偏差 %.4f 超容差（基准 %.4f）" % (gamma - exp["gamma"], exp["gamma"])
 
 
@@ -224,11 +224,11 @@ def test_censoring_handled_under_heavy_censoring():
     assert math.isfinite(beta), "β 不是有限值：%r" % beta
     assert math.isfinite(eta), "η 不是有限值：%r" % eta
     assert math.isfinite(gamma), "γ 不是有限值：%r" % gamma
-    assert abs(beta - exp["beta"]) <= 0.005 * abs(exp["beta"]), \
+    assert abs(beta - exp["beta"]) <= 0.0025 * abs(exp["beta"]), \
         "β 偏差 %.4f 超容差（基准 %.4f）" % (beta - exp["beta"], exp["beta"])
-    assert abs(eta - exp["eta"]) <= 0.005 * abs(exp["eta"]), \
+    assert abs(eta - exp["eta"]) <= 0.0025 * abs(exp["eta"]), \
         "η 偏差 %.4f 超容差（基准 %.4f）" % (eta - exp["eta"], exp["eta"])
-    assert abs(gamma - exp["gamma"]) <= max(0.03 * abs(exp["gamma"]), 1.0), \
+    assert abs(gamma - exp["gamma"]) <= max(0.02 * abs(exp["gamma"]), 1.0), \
         "γ 偏差 %.4f 超容差（基准 %.4f）" % (gamma - exp["gamma"], exp["gamma"])
 
 
@@ -264,11 +264,11 @@ def test_two_parameter_limit_when_gamma_near_zero():
     assert math.isfinite(beta), "β 不是有限值：%r" % beta
     assert math.isfinite(eta), "η 不是有限值：%r" % eta
     assert math.isfinite(gamma), "γ 不是有限值：%r" % gamma
-    assert abs(beta - exp["beta"]) <= 0.005 * abs(exp["beta"]), \
+    assert abs(beta - exp["beta"]) <= 0.0025 * abs(exp["beta"]), \
         "β 偏差 %.4f 超容差（基准 %.4f）" % (beta - exp["beta"], exp["beta"])
-    assert abs(eta - exp["eta"]) <= 0.005 * abs(exp["eta"]), \
+    assert abs(eta - exp["eta"]) <= 0.0025 * abs(exp["eta"]), \
         "η 偏差 %.4f 超容差（基准 %.4f）" % (eta - exp["eta"], exp["eta"])
-    assert abs(gamma - exp["gamma"]) <= max(0.03 * abs(exp["gamma"]), 1.0), \
+    assert abs(gamma - exp["gamma"]) <= max(0.02 * abs(exp["gamma"]), 1.0), \
         "γ 偏差 %.4f 超容差（基准 %.4f）" % (gamma - exp["gamma"], exp["gamma"])
 
     gamma = float(report["params"]["gamma"])
