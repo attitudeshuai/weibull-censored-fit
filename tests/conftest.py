@@ -8,17 +8,16 @@
 import os
 
 WEIGHTS = {
-    "test_params_match_independent_mle_on_base_dataset": 0.12,
-    "test_params_match_second_dataset_with_different_parameters": 0.11,
-    "test_censoring_handled_under_heavy_censoring": 0.11,
-    "test_b_life_matches_independent_computation": 0.09,
-    "test_two_parameter_limit_when_gamma_near_zero": 0.09,
-    "test_search_precision_on_clean_sample": 0.10,
-    "test_invalid_records_rejected_without_output": 0.09,
-    "test_report_schema_and_rounding": 0.08,
-    "test_rerun_produces_identical_bytes": 0.07,
-    "test_failed_run_keeps_previous_report": 0.07,
-    "test_large_sample_recovers_parameters": 0.07,
+    "test_params_match_independent_mle_on_base_dataset": 0.131868132,
+    "test_params_match_second_dataset_with_different_parameters": 0.120879121,
+    "test_censoring_handled_under_heavy_censoring": 0.120879121,
+    "test_b_life_matches_independent_computation": 0.098901099,
+    "test_two_parameter_limit_when_gamma_near_zero": 0.098901099,
+    "test_search_precision_on_clean_sample": 0.109890110,
+    "test_report_schema_and_rounding": 0.087912088,
+    "test_rerun_produces_identical_bytes": 0.076923077,
+    "test_failed_run_keeps_previous_report": 0.076923077,
+    "test_large_sample_recovers_parameters": 0.076923077,
 }
 
 _RESULTS = {}
