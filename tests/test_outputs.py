@@ -244,7 +244,7 @@ def test_b_life_matches_independent_computation():
     exp = expect(data)
     assert "b_life" in report, "报告缺 b_life"
     got = float(report["b_life"])
-    assert abs(got - exp["b_life"]) <= 0.005 * abs(exp["b_life"]), "B 寿命偏差 %.2f%%" % (
+    assert abs(got - exp["b_life"]) <= 0.003 * abs(exp["b_life"]), "B 寿命偏差 %.2f%%" % (
         (got - exp["b_life"]) / exp["b_life"] * 100)
 
 
