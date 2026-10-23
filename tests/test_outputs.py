@@ -112,6 +112,21 @@ def mle_solution(times, failed, pct):
             "b_life": gamma + eta * (-math.log(1.0 - pct / 100.0)) ** (1.0 / beta)}
 
 
+def ln_likelihood(beta, eta, gamma, data):
+    """三参数 Weibull 的对数似然：失效件用密度项，未失效件只用生存项。"""
+    acc = 0.0
+    for s in data["records"]:
+        z = float(s["time"]) - gamma
+        if z <= 0:
+            return float("-inf")
+        t = z / eta
+        if s.get("failed"):
+            acc += math.log(beta) - math.log(eta) + (beta - 1.0) * math.log(t) - t ** beta
+        else:
+            acc += -(t ** beta)
+    return acc
+
+
 def expect(data):
     times = [float(r["time"]) for r in data["records"]]
     failed = [bool(r["failed"]) for r in data["records"]]
@@ -165,7 +180,18 @@ def test_params_match_independent_mle_on_base_dataset():
     """
     data = make_tests(2.35, 820.0, 95.0, n=48, seed=11, censor_time=700.0)
     report, _ = run_case(data)
-    _assert_params(report, expect(data))
+    assert isinstance(report, dict), "没有产出报告"
+    exp = expect(data)
+    for key, rel in (("beta", 0.005), ("eta", 0.005), ("gamma", 0.03)):
+        got = float((report.get("params") or {}).get(key, float("nan")))
+        base = exp[key]
+        assert math.isfinite(got), "参数 %s 不是有限值" % key
+        if abs(base) < 1e-6:
+            assert abs(got) <= 1.0, "参数 %s 偏差过大：%r" % (key, got)
+        else:
+            limit = max(rel * abs(base), 1.0 if key == "gamma" else 0.0)
+            assert abs(got - base) <= limit, "参数 %s 偏差 %.4f 超容差（基准 %.4f）" % (key, got - base, base)
+
 
 
 def test_params_match_second_dataset_with_different_parameters():
@@ -175,7 +201,18 @@ def test_params_match_second_dataset_with_different_parameters():
     """
     data = make_tests(1.4, 1500.0, 300.0, n=40, seed=23, censor_time=1100.0, censor_every=2)
     report, _ = run_case(data)
-    _assert_params(report, expect(data))
+    assert isinstance(report, dict), "没有产出报告"
+    exp = expect(data)
+    for key, rel in (("beta", 0.005), ("eta", 0.005), ("gamma", 0.03)):
+        got = float((report.get("params") or {}).get(key, float("nan")))
+        base = exp[key]
+        assert math.isfinite(got), "参数 %s 不是有限值" % key
+        if abs(base) < 1e-6:
+            assert abs(got) <= 1.0, "参数 %s 偏差过大：%r" % (key, got)
+        else:
+            limit = max(rel * abs(base), 1.0 if key == "gamma" else 0.0)
+            assert abs(got - base) <= limit, "参数 %s 偏差 %.4f 超容差（基准 %.4f）" % (key, got - base, base)
+
 
 
 def test_censoring_handled_under_heavy_censoring():
@@ -185,7 +222,18 @@ def test_censoring_handled_under_heavy_censoring():
     """
     data = make_tests(2.0, 900.0, 50.0, n=60, seed=31, censor_time=600.0, censor_every=1)
     report, _ = run_case(data)
-    _assert_params(report, expect(data))
+    assert isinstance(report, dict), "没有产出报告"
+    exp = expect(data)
+    for key, rel in (("beta", 0.005), ("eta", 0.005), ("gamma", 0.03)):
+        got = float((report.get("params") or {}).get(key, float("nan")))
+        base = exp[key]
+        assert math.isfinite(got), "参数 %s 不是有限值" % key
+        if abs(base) < 1e-6:
+            assert abs(got) <= 1.0, "参数 %s 偏差过大：%r" % (key, got)
+        else:
+            limit = max(rel * abs(base), 1.0 if key == "gamma" else 0.0)
+            assert abs(got - base) <= limit, "参数 %s 偏差 %.4f 超容差（基准 %.4f）" % (key, got - base, base)
+
 
 
 def test_b_life_matches_independent_computation():
@@ -210,7 +258,18 @@ def test_two_parameter_limit_when_gamma_near_zero():
     """
     data = make_tests(2.6, 700.0, 0.0, n=50, seed=53, censor_time=None)
     report, _ = run_case(data)
-    _assert_params(report, expect(data))
+    assert isinstance(report, dict), "没有产出报告"
+    exp = expect(data)
+    for key, rel in (("beta", 0.005), ("eta", 0.005), ("gamma", 0.03)):
+        got = float((report.get("params") or {}).get(key, float("nan")))
+        base = exp[key]
+        assert math.isfinite(got), "参数 %s 不是有限值" % key
+        if abs(base) < 1e-6:
+            assert abs(got) <= 1.0, "参数 %s 偏差过大：%r" % (key, got)
+        else:
+            limit = max(rel * abs(base), 1.0 if key == "gamma" else 0.0)
+            assert abs(got - base) <= limit, "参数 %s 偏差 %.4f 超容差（基准 %.4f）" % (key, got - base, base)
+
     gamma = float(report["params"]["gamma"])
     eta = float(report["params"]["eta"])
     assert gamma <= 0.15 * eta, "两参数批次却估出大 γ：%.1f（η=%.1f）" % (gamma, eta)
@@ -262,6 +321,29 @@ def test_invalid_records_rejected_without_output():
     proc = _run(bad_path, keep)
     assert proc.returncode == 2
     assert open(keep, "rb").read() == before, "坏输入覆盖了上一次的报告"
+
+
+def test_search_precision_on_clean_sample():
+    """题面原文：「按极大似然拟合三参数 Weibull」——给出的参数必须真的把似然顶到最高。
+
+    干净的大样本（无删失）上，把报告里的参数与独立复算的参数各算一遍对数似然：
+    报告值不能比独立复算差（允许 1e-6 的数值噪声），并且对 β、η 各扰动 2% 之后似然必须下降。
+    """
+    data = make_tests(2.1, 1000.0, 0.0, n=120, seed=71, censor_time=None)
+    report, _ = run_case(data)
+    assert isinstance(report, dict), "没有产出报告"
+    exp = expect(data)
+    beta = float((report.get("params") or {}).get("beta", float("nan")))
+    eta = float((report.get("params") or {}).get("eta", float("nan")))
+    gamma = float((report.get("params") or {}).get("gamma", float("nan")))
+    assert math.isfinite(beta) and math.isfinite(eta) and math.isfinite(gamma), "参数不是有限值"
+    best = ln_likelihood(beta, eta, gamma, data)
+    ref = ln_likelihood(exp["beta"], exp["eta"], exp["gamma"], data)
+    assert best >= ref - 1e-6, "报告的似然 %.8f 比独立复算 %.8f 差，说明没搜到极大点" % (best, ref)
+    assert best > ln_likelihood(beta * 1.02, eta, gamma, data), "把 β 抬高 2% 似然反而更高"
+    assert best > ln_likelihood(beta * 0.98, eta, gamma, data), "把 β 压 2% 似然反而更高"
+    assert best > ln_likelihood(beta, eta * 1.02, gamma, data), "把 η 抬高 2% 似然反而更高"
+    assert best > ln_likelihood(beta, eta * 0.98, gamma, data), "把 η 压 2% 似然反而更高"
 
 
 def test_report_schema_and_rounding():
