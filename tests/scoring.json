@@ -5,44 +5,48 @@
   ],
   "tests": {
     "test_outputs.py::test_params_match_independent_mle_on_base_dataset": {
-      "weight": 0.13186813186813187,
+      "weight": 0.12791208791208802,
       "rationale": "三参数极大似然与右删失处理（params match independent mle on base dataset）"
     },
     "test_outputs.py::test_params_match_second_dataset_with_different_parameters": {
-      "weight": 0.12087912087912088,
+      "weight": 0.11725274725274724,
       "rationale": "三参数极大似然与右删失处理（params match second dataset with different parameters）"
     },
     "test_outputs.py::test_censoring_handled_under_heavy_censoring": {
-      "weight": 0.12087912087912088,
+      "weight": 0.11725274725274724,
       "rationale": "三参数极大似然与右删失处理（censoring handled under heavy censoring）"
     },
     "test_outputs.py::test_b_life_matches_independent_computation": {
-      "weight": 0.0989010989010989,
+      "weight": 0.09593406593406592,
       "rationale": "三参数极大似然与右删失处理（b life matches independent computation）"
     },
     "test_outputs.py::test_two_parameter_limit_when_gamma_near_zero": {
-      "weight": 0.0989010989010989,
+      "weight": 0.09593406593406592,
       "rationale": "三参数极大似然与右删失处理（two parameter limit when gamma near zero）"
     },
     "test_outputs.py::test_search_precision_on_clean_sample": {
-      "weight": 0.10989010989010989,
+      "weight": 0.10659340659340659,
       "rationale": "三参数极大似然与右删失处理（search precision on clean sample）"
     },
     "test_outputs.py::test_report_schema_and_rounding": {
-      "weight": 0.0879120879120879,
+      "weight": 0.08527472527472527,
       "rationale": "三参数极大似然与右删失处理（report schema and rounding）"
     },
     "test_outputs.py::test_rerun_produces_identical_bytes": {
-      "weight": 0.07692307692307693,
+      "weight": 0.07461538461538461,
       "rationale": "三参数极大似然与右删失处理（rerun produces identical bytes）"
     },
     "test_outputs.py::test_failed_run_keeps_previous_report": {
-      "weight": 0.07692307692307693,
+      "weight": 0.07461538461538461,
       "rationale": "三参数极大似然与右删失处理（failed run keeps previous report）"
     },
     "test_outputs.py::test_large_sample_recovers_parameters": {
-      "weight": 0.07692307692307693,
+      "weight": 0.07461538461538461,
       "rationale": "三参数极大似然与右删失处理（large sample recovers parameters）"
+    },
+    "test_outputs.py::test_zero_survival_time_rejected": {
+      "weight": 0.03,
+      "rationale": "边界值拒收：正好落在「必须为正」的边界上"
     }
   }
 }

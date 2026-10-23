@@ -117,7 +117,7 @@ def _best_beta(gamma, times, failed, lo=0.05, hi=20.0, iters=120):
     for _ in range(iters):
         if fc is None or fd is None:
             return None
-        if fc[1] >= fd[1]:
+        if not (fc[1] < fd[1]):
             b, d, fd = d, c, fc
             c = b - phi * (b - a)
             fc = _profile(math.exp(c), gamma, times, failed)
@@ -156,18 +156,18 @@ def fit(scan):
             d = lo + phi * (hi - lo)
             gc = _best_beta(c, times, failed)
             gd = _best_beta(d, times, failed)
-            if gc and (not gd or gc[2] >= gd[2]):
+            if gc and (not gd or not (gc[2] < gd[2])):
                 hi = d
             else:
                 lo = c
-            got = gc if gc and (not gd or gc[2] >= gd[2]) else gd
+            got = gc if gc and (not gd or not (gc[2] < gd[2])) else gd
             if got and got[2] > best[3]:
                 best = (c if got is gc else d, got[0], got[1], got[2])
 
     gamma, beta, eta, ln_l = best
     if gamma < 1e-6:
         zero = _best_beta(0.0, times, failed)
-        if zero and zero[2] >= ln_l:
+        if zero and not (zero[2] < ln_l):
             gamma, beta, eta, ln_l = 0.0, zero[0], zero[1], zero[2]
     return beta, eta, gamma, ln_l
 

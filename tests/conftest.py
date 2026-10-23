@@ -8,16 +8,17 @@
 import os
 
 WEIGHTS = {
-    "test_params_match_independent_mle_on_base_dataset": 0.131868132,
-    "test_params_match_second_dataset_with_different_parameters": 0.120879121,
-    "test_censoring_handled_under_heavy_censoring": 0.120879121,
-    "test_b_life_matches_independent_computation": 0.098901099,
-    "test_two_parameter_limit_when_gamma_near_zero": 0.098901099,
-    "test_search_precision_on_clean_sample": 0.109890110,
-    "test_report_schema_and_rounding": 0.087912088,
-    "test_rerun_produces_identical_bytes": 0.076923077,
-    "test_failed_run_keeps_previous_report": 0.076923077,
-    "test_large_sample_recovers_parameters": 0.076923077,
+    "test_params_match_independent_mle_on_base_dataset": 0.127912088,
+    "test_params_match_second_dataset_with_different_parameters": 0.117252747,
+    "test_censoring_handled_under_heavy_censoring": 0.117252747,
+    "test_b_life_matches_independent_computation": 0.095934066,
+    "test_two_parameter_limit_when_gamma_near_zero": 0.095934066,
+    "test_search_precision_on_clean_sample": 0.106593407,
+    "test_report_schema_and_rounding": 0.085274725,
+    "test_rerun_produces_identical_bytes": 0.074615385,
+    "test_failed_run_keeps_previous_report": 0.074615385,
+    "test_large_sample_recovers_parameters": 0.074615385,
+    "test_zero_survival_time_rejected": 0.030000000,
 }
 
 _RESULTS = {}

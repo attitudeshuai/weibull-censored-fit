@@ -421,3 +421,21 @@ def test_large_sample_recovers_parameters():
     assert abs(beta - truth["beta"]) <= 0.10 * truth["beta"], "大样本 β 偏差过大：%.3f" % beta
     assert abs(eta - truth["eta"]) <= 0.06 * truth["eta"], "大样本 η 偏差过大：%.1f" % eta
     assert 0.5 * truth["gamma"] <= gamma <= 1.5 * truth["gamma"], "大样本 γ 不合理：%.1f" % gamma
+
+
+def test_zero_survival_time_rejected():
+    """题面原文：「时间不是正数」属非法记录。
+
+    把一条记录的时间改成 0（边界值）：必须退出码 2 且不产出结论文件。
+    """
+    data = make_tests(2.0, 900.0, 50.0, n=40, seed=811, censor_time=None)
+    data["records"][0]["time"] = 0.0
+    tmp = tempfile.mkdtemp(prefix="wb-bound-")
+    tpath = os.path.join(tmp, "tests.json")
+    opath = os.path.join(tmp, "report.json")
+    with open(tpath, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
+    proc = _run(tpath, opath)
+    assert proc.returncode == 2, "时间为 0 时退出码应为 2，实际 %r" % proc.returncode
+    assert not os.path.exists(opath), "时间为 0 时不该产出结论"
+
